@@ -2,6 +2,8 @@ package be.vdab.nieuwefietsen.repositories;
 
 import be.vdab.nieuwefietsen.domain.Adres;
 import be.vdab.nieuwefietsen.domain.Campus;
+import be.vdab.nieuwefietsen.domain.Docent;
+import be.vdab.nieuwefietsen.domain.TelefoonNr;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -13,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest(showSql = false)
 @Import(CampusRepository.class)
-@Sql("/insertCampus.sql")
+@Sql({"/insertCampus.sql", "/insertDocent.sql"})
 class CampusRepositoryTest extends AbstractTransactionalJUnit4SpringContextTests {
     private static final String CAMPUSSEN ="campussen";
     private final CampusRepository repository;
@@ -49,5 +51,23 @@ class CampusRepositoryTest extends AbstractTransactionalJUnit4SpringContextTests
         repository.create(campus);
         assertThat(countRowsInTableWhere(CAMPUSSEN,
                 "id = " + campus.getId())).isOne();
+    }
+
+    @Test
+    void telefoonNrsLezen() {
+        assertThat(repository.findById(idVanTestCampus()))
+                .hasValueSatisfying(
+                        campus -> assertThat(campus.getTelefoonNrs())
+                                .containsOnly(new TelefoonNr("1", false, "test")));
+    }
+
+    @Test
+    void docentenLazyLoaded() {
+        assertThat(repository.findById(idVanTestCampus()))
+                .hasValueSatisfying(campus ->
+                        assertThat(campus.getDocenten())
+                                .hasSize(2)
+                                .first()
+                                .extracting(Docent::getVoornaam).isEqualTo("testM"));
     }
 }

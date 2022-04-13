@@ -1,5 +1,7 @@
 package be.vdab.nieuwefietsen.services;
 
+import be.vdab.nieuwefietsen.domain.Adres;
+import be.vdab.nieuwefietsen.domain.Campus;
 import be.vdab.nieuwefietsen.domain.Docent;
 import be.vdab.nieuwefietsen.domain.Geslacht;
 import be.vdab.nieuwefietsen.exceptions.DocentNietGevondenException;
@@ -28,8 +30,9 @@ class DocentServiceTest {
     @BeforeEach
     void beforeEach() {
         service = new DocentService(repository);
-        docent = new Docent(
-                "test", "test", BigDecimal.valueOf(100), "test@test.be", Geslacht.MAN);
+        var campus = new Campus("test", new Adres("test", "test", "test", "test"));
+        docent = new Docent("test", "test", BigDecimal.valueOf(100), "test@test.be",
+                Geslacht.MAN/*, campus*/);
     }
 
     @Test
