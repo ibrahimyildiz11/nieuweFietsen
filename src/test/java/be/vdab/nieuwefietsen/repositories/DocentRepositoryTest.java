@@ -1,9 +1,6 @@
 package be.vdab.nieuwefietsen.repositories;
 
-import be.vdab.nieuwefietsen.domain.Adres;
-import be.vdab.nieuwefietsen.domain.Campus;
-import be.vdab.nieuwefietsen.domain.Docent;
-import be.vdab.nieuwefietsen.domain.Geslacht;
+import be.vdab.nieuwefietsen.domain.*;
 import be.vdab.nieuwefietsen.projections.AantalDocentenPerWedde;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +15,8 @@ import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest(showSql = false)
-@Sql({"/insertCampus.sql", "/insertDocent.sql"})
+@Sql({"/insertCampus.sql", "/insertVerantwoordelijkheid.sql",
+        "/insertDocent.sql", "/insertDocentVerantwoordelijkheid.sql"})
 @Import(DocentRepository.class)
 class DocentRepositoryTest extends AbstractTransactionalJUnit4SpringContextTests {
     private final DocentRepository repository;
@@ -27,6 +25,8 @@ class DocentRepositoryTest extends AbstractTransactionalJUnit4SpringContextTests
     private final EntityManager manager;
     private static final String DOCENTEN = "DOCENTEN";
     private static final String DOCENTEN_BIJNAMEN = "docentenbijnamen";
+    private static final String DOCENTEN_VERANTWOORDELIJKHEDEN =
+            "docentenverantwoordelijkheden";
 
 
     DocentRepositoryTest(DocentRepository repository, EntityManager manager) {
@@ -39,8 +39,7 @@ class DocentRepositoryTest extends AbstractTransactionalJUnit4SpringContextTests
 
         campus = new Campus("test", new Adres("test", "test", "test", "test"));
         docent = new Docent(
-                "test", "test", BigDecimal.TEN, "test@test.be", Geslacht.MAN/*, campus*/);
-        campus.add(docent);
+                "test", "test", BigDecimal.TEN, "test@test.be", Geslacht.MAN, campus);
     }
 
     private long idVanTestMan() {
@@ -111,10 +110,14 @@ class DocentRepositoryTest extends AbstractTransactionalJUnit4SpringContextTests
         var duizend = BigDecimal.valueOf(1_000);
         var tweeduizend = BigDecimal.valueOf(2_000);
         var docenten = repository.findByWeddeBetween(duizend, tweeduizend);
+        manager.clear();
         assertThat(docenten)
-                .hasSize(countRowsInTableWhere(DOCENTEN, "wedde between 1000 and 2000"))
+                .extracting(Docent::getCampus)
+                .extracting(Campus::getNaam)
+                /*.hasSize(countRowsInTableWhere(DOCENTEN, "wedde between 1000 and 2000"))
                 .allSatisfy(
-                        docent -> assertThat(docent.getWedde()).isBetween(duizend, tweeduizend));
+                        docent -> assertThat(docent.getWedde()).isBetween(duizend, tweeduizend))*/
+                .isNotNull();
     }
 
     @Test
@@ -175,11 +178,31 @@ class DocentRepositoryTest extends AbstractTransactionalJUnit4SpringContextTests
                 "bijnaam = 'test' and docentId = " + docent.getId())).isOne();
     }
 
-    /*@Test
+    @Test
     void campusLazyLoaded() {
         assertThat(repository.findById(idVanTestMan()))
                 .hasValueSatisfying(
                         docent -> assertThat(docent.getCampus().getNaam()).isEqualTo("test"));
-    }*/
+    }
+
+    @Test
+    void verantwoordelijkhedenLezen() {
+        assertThat(repository.findById(idVanTestMan()))
+                .hasValueSatisfying(
+                        docent -> assertThat(docent.getVerantwoordelijkheden())
+                                .containsOnly(new Verantwoordelijkheid("test")));
+    }
+    @Test
+    void verantwoordelijkheidToevoegen() {
+        var verantwoordelijkheid = new Verantwoordelijkheid("test2");
+        manager.persist(verantwoordelijkheid);
+        manager.persist(campus);
+        repository.create(docent);
+        docent.add(verantwoordelijkheid);
+        manager.flush();
+        assertThat(countRowsInTableWhere(DOCENTEN_VERANTWOORDELIJKHEDEN,
+                "docentId = " + docent.getId() +
+                        " and verantwoordelijkheidId = " + verantwoordelijkheid.getId())).isOne();
+    }
 
 }

@@ -3,12 +3,23 @@ package be.vdab.nieuwefietsen.domain;
 import javax.persistence.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "docenten")
+@NamedEntityGraph(name = Docent.MET_CAMPUS,
+attributeNodes = @NamedAttributeNode("campus"))
+@NamedEntityGraph(name = "Docent.metCampusEnVerantwoordelijkheden",
+attributeNodes = {
+        @NamedAttributeNode("campus"), @NamedAttributeNode("verantwoordelijkheden")})
+/*@NamedEntityGraph(name = "Docent.metCampusEnManager",
+attributeNodes = @NamedAttributeNode(value = "campus",
+subgraph = "metManager"),
+subgraphs = @NamedSubgraph(name = "metManager",
+attributeNodes = @NamedAttributeNode("manager")))*/
 public class Docent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,19 +35,25 @@ public class Docent {
     joinColumns = @JoinColumn(name = "docentId"))
     @Column(name = "bijnaam")
     private Set<String> bijnamen;
-    //@ManyToOne(fetch = FetchType.LAZY, optional = false)
-    /*@JoinColumn(name = "campusId")
-    private Campus campus;*/
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "campusId")
+    private Campus campus;
+    @ManyToMany(mappedBy = "docenten")
+    private Set<Verantwoordelijkheid> verantwoordelijkheden = new LinkedHashSet<>();
+
+    public static final String MET_CAMPUS = "Docent.metCampus";
+    @Version
+    private Timestamp versie;
 
     public Docent(String voornaam, String familienaam, BigDecimal wedde, String emailAdres,
-                  Geslacht geslacht/*, Campus campus*/) {
+                  Geslacht geslacht, Campus campus) {
         this.voornaam = voornaam;
         this.familienaam = familienaam;
         this.wedde = wedde;
         this.emailAdres = emailAdres;
         this.geslacht = geslacht;
         this.bijnamen = new LinkedHashSet<>();
-        //setCampus(campus);
+        setCampus(campus);
     }
 
     protected Docent() {}
@@ -65,13 +82,16 @@ public class Docent {
         return geslacht;
     }
 
-    /*public Campus getCampus() {
+    public Campus getCampus() {
         return campus;
     }
 
     public void setCampus(Campus campus) {
+        if (!campus.getDocenten().contains(this)) {
+            campus.add(this);
+        }
         this.campus = campus;
-    }*/
+    }
 
     public void opslag(BigDecimal percentage) {
         if (percentage.compareTo(BigDecimal.ZERO) <= 0) {
@@ -103,5 +123,25 @@ public class Docent {
     @Override
     public int hashCode() {
         return emailAdres == null ? 0 : emailAdres.toLowerCase().hashCode();
+    }
+
+    public boolean add(Verantwoordelijkheid verantwoordelijkheid) {
+        var toegevoegd = verantwoordelijkheden.add(verantwoordelijkheid);
+        if (!verantwoordelijkheid.getDocenten().contains(this)) {
+            verantwoordelijkheid.add(this);
+        }
+        return toegevoegd;
+    }
+
+    public boolean remove(Verantwoordelijkheid verantwoordelijkheid) {
+        var verwijderd = verantwoordelijkheden.remove(verantwoordelijkheid);
+        if (verantwoordelijkheid.getDocenten().contains(this)) {
+            verantwoordelijkheid.remove(this);
+        }
+        return verwijderd;
+    }
+
+    public Set<Verantwoordelijkheid> getVerantwoordelijkheden() {
+        return Collections.unmodifiableSet(verantwoordelijkheden);
     }
 }
